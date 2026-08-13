@@ -33,6 +33,8 @@ A flexible PowerShell toolkit for deploying, uninstalling, and automatically mai
 `Manage-WingetApp.ps1
 `
 - Purpose: Universal Win32 App deployment script that handles both the installation and uninstallation of specified Winget packages.
+- Examples:
+  - Install:
 
 `Manage-WingetApp.intunewin
 `
