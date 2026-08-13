@@ -11,7 +11,8 @@
   
 .NOTES
   Version:        2.0
-  Github-Author:  manuel-stgr        
+  Github-Author:  manuel-stgr
+  License-URL:    https://github.com/manuel-stgr/Intune-Winget-Management/blob/main/LICENSE  
   Creation Date:  2026-08-13
   Purpose/Change: Added JSON-based local tracking database to maintain an inventory of installed packages.
 #>
