@@ -25,6 +25,9 @@ A flexible PowerShell toolkit for deploying, uninstalling, and automatically mai
 
 
 # Components & Script Description
+When configuring Intune Win32 Apps or Proactive Remediations, always set "Run script as 32-bit process on 64-bit clients" to `No`.
+Running under 32-bit PowerShell causes path redirection errors for `%ProgramFiles%`, registry lookup failures `(missing standard HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall keys)`, and context mismatches when interacting with `winget.exe` in the `SYSTEM` context.
+
 ## 1. Detection-Script
 ` Detect-WingetApp.ps1
 `
