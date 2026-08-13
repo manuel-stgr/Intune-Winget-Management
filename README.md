@@ -48,9 +48,9 @@ A flexible PowerShell toolkit for deploying, uninstalling, and automatically mai
     powershell.exe -ExecutionPolicy Bypass -File ".\Manage-WingetApp.ps1" -Action Uninstall -AppId "Notepad++.Notepad++"
     ```
     - Sometimes it is better to use the original application uninstaller method, like this (especially VideoLAN.VLC):
-    ```
-    "%ProgramFiles%\VideoLAN\VLC\uninstall.exe" /S
-    ```
+        ```
+        "%ProgramFiles%\VideoLAN\VLC\uninstall.exe" /S
+        ```
 
 `Manage-WingetApp.intunewin
 `
