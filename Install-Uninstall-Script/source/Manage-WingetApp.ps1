@@ -212,7 +212,7 @@ function Invoke-NativeUninstall {
         [string]$UninstallCmd
     )
 
-    # 1. Direkter Befehl übergeben (z.B. VLC Deinstallationspfad)
+    # 1. Direct command passed (e.g., VLC uninstallation path)
     if ($UninstallCmd) {
         $expandedCmd = [System.Environment]::ExpandEnvironmentVariables($UninstallCmd).Trim()
         Write-Log "Executing custom uninstaller: $expandedCmd" "INFO" "Yellow"
@@ -221,12 +221,12 @@ function Invoke-NativeUninstall {
             $exePath  = ""
             $argsList = ""
 
-            # Fall A: Pfad ist bereits in Anführungszeichen "C:\Pfad\app.exe" /S
+            # Case A: Path is already in quotation marks "C:\Path\app.exe" /S
             if ($expandedCmd -match '^"(?<exe>[^"]+)"\s*(?<args>.*)$') {
                 $exePath  = $Matches['exe']
                 $argsList = $Matches['args']
             } 
-            # Fall B: Pfad hat keine Anführungszeichen C:\Program Files\...\app.exe /S
+            # Case B: Path has no quotation marks C:\Program Files\...\app.exe /S
             elseif ($expandedCmd -match '^(?<exe>.*?\.(?:exe|bat|cmd))\s*(?<args>.*)$') {
                 $exePath  = $Matches['exe'].Trim('"')
                 $argsList = $Matches['args']
@@ -237,7 +237,7 @@ function Invoke-NativeUninstall {
                 $argsList = ""
             }
 
-            Write-Log "Extrahierter Pfad: '$exePath' | Argumente: '$argsList'" "INFO" "Gray"
+            Write-Log "Extracted path: '$exePath' | Argument: '$argsList'" "INFO" "Gray"
 
             $proc = Start-Process -FilePath $exePath -ArgumentList $argsList -Wait -PassThru -NoNewWindow
             return ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010)
@@ -247,7 +247,7 @@ function Invoke-NativeUninstall {
         }
     }
 
-    # 2. Fallback: Registry-Suche (unverändert)
+    # 2. Fallback: Search Registry
     Write-Log "Searching Registry for uninstaller matching '$AppId'..." "WARN" "Yellow"
     $regPaths = @(
         "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
