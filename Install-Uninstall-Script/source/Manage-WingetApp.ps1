@@ -10,7 +10,7 @@
   Uninstall: 	powershell.exe -ExecutionPolicy Bypass -File ".\Manage-WingetApp.ps1" -Action Uninstall -AppId "Notepad++.Notepad++"
   
 .NOTES
-  Version:        1.0
+  Version:        1.1
   Github-Author:  manuel-stgr        
   Creation Date:  2026-08-13
   Purpose/Change: Creation
@@ -52,10 +52,10 @@ function Write-Log {
     $TimeStamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $LogEntry  = "[$TimeStamp] [$Level] $Message"
     
-    # In Datei schreiben
+    # Write in File
     Add-Content -Path $LogPath -Value $LogEntry -ErrorAction SilentlyContinue
     
-    # Auf der Konsole ausgeben
+    # Display at Console
     Write-Host $LogEntry -ForegroundColor $Color
 }
 
