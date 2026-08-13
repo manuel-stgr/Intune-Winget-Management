@@ -54,9 +54,9 @@ Running under 32-bit PowerShell causes path redirection errors for `%ProgramFile
     ```
     powershell.exe -ExecutionPolicy Bypass -File ".\Manage-WingetApp.ps1" -Action Uninstall -AppId "Notepad++.Notepad++"
     ```
-    - Sometimes it is better to use the original application uninstaller method, like this (especially VideoLAN.VLC):
+    - Sometimes it is better to use the original application uninstaller method, like this (especially VideoLAN.VLC), the Script also try to find a uninstall method localy:
         ```
-        "%ProgramFiles%\VideoLAN\VLC\uninstall.exe" /S
+        powershell.exe -ExecutionPolicy Bypass -File .\Manage-WingetApp.ps1 -Action unInstall -AppId "VideoLAN.VLC" -CustomUninstallString '"%ProgramFiles%\VideoLAN\VLC\uninstall.exe" /S'
         ```
 
 `Manage-WingetApp.intunewin
