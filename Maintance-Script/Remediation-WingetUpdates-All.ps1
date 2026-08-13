@@ -38,6 +38,14 @@ Write-Log "=========================================="
 Write-Log "Starting remediation: Automatic Winget maintenance"
 
 # ---------------------------------------------------------------------------
+# 0. 64-bit PowerShell Redirection
+# ---------------------------------------------------------------------------
+if ($env:PROCESSOR_ARCHITEW6432 -eq "AMD64") {
+    & "$env:SystemRoot\SysNative\WindowsPowerShell\v1.0\powershell.exe" -ExecutionPolicy Bypass -File "$PSCommandPath"
+    exit $LASTEXITCODE
+}
+
+# ---------------------------------------------------------------------------
 # 1. Determine the path to winget.exe
 # ---------------------------------------------------------------------------
 
