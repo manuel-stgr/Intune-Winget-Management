@@ -28,7 +28,7 @@ A flexible PowerShell toolkit for deploying, uninstalling, and automatically mai
 ```text 
 Detect-WingetApp.ps1
 ```
-Purpose: Custom Intune detection script used to verify whether a specific application is already installed on the endpoint.
+#Purpose:# Custom Intune detection script used to verify whether a specific application is already installed on the endpoint.
 
 ## 2. Install & Uninstall Script
 ```text 
