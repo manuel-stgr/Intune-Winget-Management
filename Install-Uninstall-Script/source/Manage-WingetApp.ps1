@@ -10,10 +10,10 @@
   Uninstall: 	powershell.exe -ExecutionPolicy Bypass -File ".\Manage-WingetApp.ps1" -Action Uninstall -AppId "Notepad++.Notepad++"
   
 .NOTES
-  Version:        1.1
+  Version:        2.0
   Github-Author:  manuel-stgr        
   Creation Date:  2026-08-13
-  Purpose/Change: Creation
+  Purpose/Change: Added JSON-based local tracking database to maintain an inventory of installed packages.
 #>
 
 
@@ -30,14 +30,18 @@ param (
 
     [Parameter(Mandatory = $false)]
     [ValidateSet('wix', 'nullsoft', 'msi', 'exe', 'inno', 'burn', 'msix', 'portable', 'zip')]
-    [string]$InstallerType
+    [string]$InstallerType,
+
+    [Parameter(Mandatory = $false)]
+    [string]$CustomUninstallString
 )
 
 # ---------------------------------------------------------------------------
-# Logging-Configuration
+# Logging & Database Configuration
 # ---------------------------------------------------------------------------
 $LogDirectory = "$env:ProgramData\Microsoft\IntuneManagementExtension\Logs"
 $LogPath      = "$LogDirectory\Winget-Manage.log"
+$DatabasePath = "$env:ProgramData\Microsoft\IntuneManagementExtension\WingetInventory.json"
 
 if (-not (Test-Path $LogDirectory)) {
     New-Item -ItemType Directory -Path $LogDirectory -Force | Out-Null
@@ -52,20 +56,78 @@ function Write-Log {
     $TimeStamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $LogEntry  = "[$TimeStamp] [$Level] $Message"
     
-    # Write in File
     Add-Content -Path $LogPath -Value $LogEntry -ErrorAction SilentlyContinue
-    
-    # Display at Console
     Write-Host $LogEntry -ForegroundColor $Color
+}
+
+# ---------------------------------------------------------------------------
+# Database Management Functions (JSON-based Inventory)
+# ---------------------------------------------------------------------------
+function Get-AppInventory {
+    if (Test-Path $DatabasePath) {
+        try {
+            return (Get-Content -Path $DatabasePath -Raw -ErrorAction Stop | ConvertFrom-Json)
+        } catch {
+            Write-Log "Error reading database. Creating a new inventory." "WARN" "Yellow"
+            return @()
+        }
+    }
+    return @()
+}
+
+function Save-AppInventory {
+    param ($Inventory)
+    try {
+        # Falls das Inventory leer ist, explizit ein leeres JSON-Array "[]" schreiben
+        if ($null -eq $Inventory -or @($Inventory).Count -eq 0) {
+            "[]" | Set-Content -Path $DatabasePath -Force -ErrorAction Stop
+        } else {
+            # -AsArray prevents a single remaining element from losing the array structure (PowerShell 7+)
+            # For PowerShell 5.1, @() forces the array
+            @($Inventory) | ConvertTo-Json -Depth 5 | Set-Content -Path $DatabasePath -Force -ErrorAction Stop
+        }
+    } catch {
+        Write-Log "Error saving database: $_" "ERROR" "Red"
+    }
+}
+
+function Add-AppToDatabase {
+    param ([string]$Id, [string]$Type)
+    $inventory = @(Get-AppInventory)
+    $inventory = @($inventory | Where-Object { $_.AppId -ne $Id })
+    
+    $newItem = [PSCustomObject]@{
+        AppId         = $Id
+        InstallerType = $Type
+        InstallDate   = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+    }
+    
+    $inventory += $newItem
+    Save-AppInventory -Inventory $inventory
+    Write-Log "App '$Id' successfully registered in the database." "INFO" "Green"
+}
+
+function Remove-AppFromDatabase {
+    param ([string]$Id)
+    $inventory = Get-AppInventory
+    
+    if ($inventory) {
+        $inventory = @($inventory | Where-Object { $_.AppId -ne $Id })
+    } else {
+        $inventory = @()
+    }
+
+    Save-AppInventory -Inventory $inventory
+    Write-Log "App '$Id' removed from the database." "INFO" "Green"
 }
 
 Write-Log "=== Start Script (Action: $Action | AppId: $AppId | InstallerType: $InstallerType) ===" "INFO" "Cyan"
 
 # ---------------------------------------------------------------------------
-# 0. Ensure that the script runs in the 64-bit host.
+# 0. Ensure that the script runs in the 64-bit host
 # ---------------------------------------------------------------------------
 if ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess) {
-    Write-Log "32-Bit PowerShell recognized. Restart in a 64-bit context..." "WARN" "Yellow"
+    Write-Log "32-Bit PowerShell detected. Relaunching in 64-bit context..." "WARN" "Yellow"
     $sysnativePowerShell = "$env:SystemRoot\SysNative\WindowsPowerShell\v1.0\powershell.exe"
     
     if (Test-Path $sysnativePowerShell) {
@@ -77,6 +139,9 @@ if ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProces
         )
         if ($PSBoundParameters.ContainsKey('InstallerType')) {
             $relaunchArgs += @("-InstallerType", $InstallerType)
+        }
+        if ($PSBoundParameters.ContainsKey('CustomUninstallString')) {
+            $relaunchArgs += @("-CustomUninstallString", $CustomUninstallString)
         }
 
         & $sysnativePowerShell @relaunchArgs
@@ -108,36 +173,7 @@ if (-not $wingetExe -or -not (Test-Path $wingetExe)) {
     exit 1
 }
 
-Write-Log "Use winget at: $wingetExe" "INFO" "Cyan"
-
-# ---------------------------------------------------------------------------
-# 2. Define standardized arguments
-# ---------------------------------------------------------------------------
-$installArgs = @(
-    "install",
-    "--id", $AppId,
-    "--exact",
-    "--silent",
-    "--disable-interactivity",
-    "--scope", "machine",
-    "--accept-source-agreements",
-    "--accept-package-agreements",
-    "--force"
-)
-
-if ($InstallerType) {
-    $installArgs += @("--installer-type", $InstallerType)
-}
-
-$uninstallArgs = @(
-    "uninstall",
-    "--id", $AppId,
-    "--silent",
-    "--disable-interactivity",
-    "--accept-source-agreements"
-)
-
-# Helper function for executing WinGet, including output logging.
+# Helper function for executing WinGet commands
 function Invoke-WingetCommand {
     param ([array]$Arguments)
     
@@ -168,40 +204,167 @@ function Invoke-WingetCommand {
 }
 
 # ---------------------------------------------------------------------------
-# 3. Execution
+# Native Uninstaller Execution (Explicit Path or Registry Search)
 # ---------------------------------------------------------------------------
+function Invoke-NativeUninstall {
+    param (
+        [string]$AppId,
+        [string]$UninstallCmd
+    )
+
+    # 1. Direkter Befehl übergeben (z.B. VLC Deinstallationspfad)
+    if ($UninstallCmd) {
+        $expandedCmd = [System.Environment]::ExpandEnvironmentVariables($UninstallCmd).Trim()
+        Write-Log "Executing custom uninstaller: $expandedCmd" "INFO" "Yellow"
+        
+        try {
+            $exePath  = ""
+            $argsList = ""
+
+            # Fall A: Pfad ist bereits in Anführungszeichen "C:\Pfad\app.exe" /S
+            if ($expandedCmd -match '^"(?<exe>[^"]+)"\s*(?<args>.*)$') {
+                $exePath  = $Matches['exe']
+                $argsList = $Matches['args']
+            } 
+            # Fall B: Pfad hat keine Anführungszeichen C:\Program Files\...\app.exe /S
+            elseif ($expandedCmd -match '^(?<exe>.*?\.(?:exe|bat|cmd))\s*(?<args>.*)$') {
+                $exePath  = $Matches['exe'].Trim('"')
+                $argsList = $Matches['args']
+            } 
+            # Fallback
+            else {
+                $exePath  = $expandedCmd
+                $argsList = ""
+            }
+
+            Write-Log "Extrahierter Pfad: '$exePath' | Argumente: '$argsList'" "INFO" "Gray"
+
+            $proc = Start-Process -FilePath $exePath -ArgumentList $argsList -Wait -PassThru -NoNewWindow
+            return ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010)
+        } catch {
+            Write-Log "Error executing custom uninstaller: $_" "ERROR" "Red"
+            return $false
+        }
+    }
+
+    # 2. Fallback: Registry-Suche (unverändert)
+    Write-Log "Searching Registry for uninstaller matching '$AppId'..." "WARN" "Yellow"
+    $regPaths = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )
+
+    $searchPattern = $AppId.Split('.')[-1]
+    $appKeys = Get-ItemProperty -Path $regPaths -ErrorAction SilentlyContinue |
+        Where-Object { $_.DisplayName -like "*$searchPattern*" -or $_.PSChildName -like "*$AppId*" }
+
+    if (-not $appKeys) {
+        Write-Log "No uninstaller entry found in Registry." "ERROR" "Red"
+        return $false
+    }
+
+    foreach ($app in $appKeys) {
+        $stringToRun = if ($app.QuietUninstallString) { $app.QuietUninstallString } else { $app.UninstallString }
+
+        if ($stringToRun) {
+            Write-Log "Registry uninstaller found: $stringToRun" "INFO" "Cyan"
+
+            if ($stringToRun -match "msiexec") {
+                if ($stringToRun -match "\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\}") {
+                    $guid = $Matches[0]
+                    $proc = Start-Process -FilePath "msiexec.exe" -ArgumentList "/x $guid /qn /norestart" -Wait -PassThru -NoNewWindow
+                    return ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010)
+                }
+            } else {
+                if ($stringToRun -notmatch "/S|/silent|/quiet|/qn") {
+                    $stringToRun += " /S"
+                }
+                $proc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$stringToRun`"" -Wait -PassThru -NoNewWindow
+                return ($proc.ExitCode -eq 0)
+            }
+        }
+    }
+    return $false
+}
+
+# ---------------------------------------------------------------------------
+# 2. Execution Logic
+# ---------------------------------------------------------------------------
+$installArgs = @(
+    "install",
+    "--id", $AppId,
+    "--exact",
+    "--silent",
+    "--disable-interactivity",
+    "--scope", "machine",
+    "--accept-source-agreements",
+    "--accept-package-agreements",
+    "--force"
+)
+if ($InstallerType) { $installArgs += @("--installer-type", $InstallerType) }
+
+$uninstallArgs = @(
+    "uninstall",
+    "--id", $AppId,
+    "--silent",
+    "--disable-interactivity",
+    "--accept-source-agreements"
+)
+
 switch ($Action) {
     'Install' {
-        Write-Log "Aktualisiere WinGet-Quellkatalog..." "INFO" "Yellow"
+        Write-Log "Updating WinGet source catalog..." "INFO" "Yellow"
         Invoke-WingetCommand -Arguments @("source", "update") | Out-Null
 
-        $installerMsg = if ($InstallerType) { " (Typ: $InstallerType)" } else { "" }
-        Write-Log "Install App: '$AppId'$installerMsg..." "INFO" "Green"
+        $installerMsg = if ($InstallerType) { " (Type: $InstallerType)" } else { "" }
+        Write-Log "Installing App: '$AppId'$installerMsg..." "INFO" "Green"
         
         $exitCode = Invoke-WingetCommand -Arguments $installArgs
-
-        # Validate the Exit-Codes (0, Already up to date; restart required)
         $validSuccessCodes = @(0, -1978335189, -1978335183, 3010)
 
         if ($validSuccessCodes -contains $exitCode) {
-            Write-Log "App '$AppId' successfully installed or was already up to date (Exit-Code: $exitCode)." "INFO" "Green"
+            Write-Log "App '$AppId' installed successfully or already up to date." "INFO" "Green"
+            Add-AppToDatabase -Id $AppId -Type $InstallerType
             exit 0
         } else {
-            Write-Log "Error during installation of '$AppId'. Exit-Code: $exitCode" "ERROR" "Red"
+            Write-Log "Error installing '$AppId'. Exit-Code: $exitCode" "ERROR" "Red"
             exit $exitCode
         }
     }
 
     'Uninstall' {
-        Write-Log "Uninstall App: '$AppId'..." "INFO" "Yellow"
+        # If a custom uninstall string was provided (e.g. VLC), run it directly
+        if ($CustomUninstallString) {
+            Write-Log "Using custom uninstall command..." "INFO" "Yellow"
+            $success = Invoke-NativeUninstall -AppId $AppId -UninstallCmd $CustomUninstallString
+            if ($success) {
+                Remove-AppFromDatabase -Id $AppId
+                exit 0
+            } else {
+                Write-Log "Custom uninstallation failed." "ERROR" "Red"
+                exit 1
+            }
+        }
+
+        # Standard path: Try via WinGet first
+        Write-Log "Uninstalling App: '$AppId' via WinGet..." "INFO" "Yellow"
         $exitCode = Invoke-WingetCommand -Arguments $uninstallArgs
 
         if ($exitCode -eq 0 -or $exitCode -eq -1978335189) {
-            Write-Log "App '$AppId' successfully uninstalled" "INFO" "Green"
+            Write-Log "App '$AppId' uninstalled successfully via WinGet." "INFO" "Green"
+            Remove-AppFromDatabase -Id $AppId
             exit 0
         } else {
-            Write-Log "Error during uninstallation of '$AppId'. Exit-Code: $exitCode" "ERROR" "Red"
-            exit $exitCode
+            Write-Log "WinGet uninstallation failed (Code: $exitCode). Starting Registry fallback..." "WARN" "Yellow"
+            $nativeSuccess = Invoke-NativeUninstall -AppId $AppId
+            if ($nativeSuccess) {
+                Write-Log "App '$AppId' removed successfully via Registry uninstaller." "INFO" "Green"
+                Remove-AppFromDatabase -Id $AppId
+                exit 0
+            } else {
+                Write-Log "Error: Failed to uninstall '$AppId'." "ERROR" "Red"
+                exit 1
+            }
         }
     }
 }
