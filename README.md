@@ -34,7 +34,7 @@ A flexible PowerShell toolkit for deploying, uninstalling, and automatically mai
 `Manage-WingetApp.ps1
 `
 - Purpose: Universal Win32 App deployment script that handles both the installation and uninstallation of specified Winget packages.
-- Examples (Notepad++):
+- Example (Notepad++):
   - Install, with or without Installer-Type:
     ```
     powershell.exe -ExecutionPolicy Bypass -File ".\Manage-WingetApp.ps1" -Action Install -AppId "Notepad++.Notepad++" -InstallerType "wix"
@@ -46,6 +46,10 @@ A flexible PowerShell toolkit for deploying, uninstalling, and automatically mai
   - Uninstall:
     ```
     powershell.exe -ExecutionPolicy Bypass -File ".\Manage-WingetApp.ps1" -Action Uninstall -AppId "Notepad++.Notepad++"
+    ```
+    - Sometimes it is better to use the original application uninstaller method, like this (especially VideoLAN.VLC):
+    ```
+    "%ProgramFiles%\VideoLAN\VLC\uninstall.exe" /S
     ```
 
 `Manage-WingetApp.intunewin
