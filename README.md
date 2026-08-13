@@ -23,6 +23,7 @@ A flexible PowerShell toolkit for deploying, uninstalling, and automatically mai
     └── Remediation-WingetUpdates-Specified.ps1
 ```
 
+
 # Components & Script Description
 ## 1. Detection-Script
 ` Detect-WingetApp.ps1
