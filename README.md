@@ -25,3 +25,4 @@ A flexible PowerShell toolkit for deploying, uninstalling, and automatically mai
 
 # Components & Script Description
 ## Detection-Script
+```text Detect-WingetApp.ps1 ```
