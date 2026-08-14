@@ -28,6 +28,26 @@ A flexible PowerShell toolkit for deploying, uninstalling, and automatically mai
         ├── Detection-WingetUpdates.ps1
         └── Remediation-WingetUpdates.ps1
 ```
+## 📁 Logging & Local Database Paths
+
+To ensure transparency during deployment and enable tracking for automated updates, the framework stores logs and inventory state in a central location on the client endpoint (`C:\ProgramData\IntuneWingetManagement\`).
+
+### Path Definitions
+
+* **Log Directory:** `C:\ProgramData\IntuneWingetManagement\Logs`
+* **Inventory Database:** `C:\ProgramData\IntuneWingetManagement\WingetInventory.json`
+
+---
+
+### Functionality
+
+1. **Centralized Logging**
+   All installation, uninstallation, detection, and remediation events are logged here with timestamps. This is essential for troubleshooting issues directly on client endpoints.
+
+2. **JSON Inventory Database (`WingetInventory.json`)**
+   - Automatically generated/updated when apps are installed/uninstalled via `Manage-WingetApp.ps1`.
+   - Stores metadata (such as `AppID`, installation date, and version) for every application deployed through this framework.
+   - Serves as the single source of truth for the **`auto/` maintenance mode**, ensuring that auto-updates only apply to managed applications without interfering with software installed manually by users.
 
 
 # Components & Script Description
@@ -104,13 +124,13 @@ The framework provides **three distinct deployment modes** depending on your upd
         └── Remediation-WingetUpdates.ps1
 ```
 ### Update Modes Overview
-1. `all/` (Full System Upgrade)
+1. `all/` **(Full System Upgrade)**
    - Scope: Upgrades all WinGet-supported applications installed on the endpoint.
    - Behavior: Runs `winget upgrade --all` to keep all software updated regardless of how it was originally installed.
-2. `auto/` (Managed Applications Only)
+2. `auto/` **(Managed Applications Only)**
    - Scope: Upgrades only applications that were deployed via this framework.
    - Behavior: Checks against a local JSON tracking database created during app deployment. Unmanaged or user-installed software is ignored.
-3. `specified/` (Targeted Application List)
+3. `specified/` **(Targeted Application List)**
    - Scope: Upgrades a curated list of applications.
    - Behavior: Targets only specific AppID entries hardcoded inside an array within the script (e.g., `$appsToUpdate` = @("7zip.7zip", "Google.Chrome")).
 
