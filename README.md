@@ -18,9 +18,15 @@ A flexible PowerShell toolkit for deploying, uninstalling, and automatically mai
 │       └── Manage-WingetApp.ps1
 │
 └── Maintenance-Script/
-    ├── Detection-WingetUpdates.ps1
-    ├── Remediation-WingetUpdates-All.ps1
-    └── Remediation-WingetUpdates-Specified.ps1
+    ├── all/
+    │   ├── Detection-WingetUpdates.ps1
+    │   └── Remediation-WingetUpdates.ps1
+    ├── auto/
+    │   ├── Detection-WingetUpdates.ps1
+    │   └── Remediation-WingetUpdates.ps1
+    └── specified/
+        ├── Detection-WingetUpdates.ps1
+        └── Remediation-WingetUpdates.ps1
 ```
 
 
