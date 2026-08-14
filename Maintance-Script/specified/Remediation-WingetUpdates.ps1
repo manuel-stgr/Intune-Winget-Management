@@ -14,14 +14,6 @@
 #>
 
 
-# ---------------------------------------------------------------------------
-# 64-bit PowerShell Redirection
-# ---------------------------------------------------------------------------
-
-if ($env:PROCESSOR_ARCHITEW6432 -eq "AMD64") {
-    & "$env:SystemRoot\SysNative\WindowsPowerShell\v1.0\powershell.exe" -ExecutionPolicy Bypass -File "$PSCommandPath"
-    exit $LASTEXITCODE
-}
 
 # ---------------------------------------------------------------------------
 # Configuration Winget-AppIDs
@@ -33,6 +25,14 @@ $appsToUpdate = @(
     # Add additional Winget IDs here.
 )
 
+# ---------------------------------------------------------------------------
+# 64-bit PowerShell Redirection
+# ---------------------------------------------------------------------------
+
+if ($env:PROCESSOR_ARCHITEW6432 -eq "AMD64") {
+    & "$env:SystemRoot\SysNative\WindowsPowerShell\v1.0\powershell.exe" -ExecutionPolicy Bypass -File "$PSCommandPath"
+    exit $LASTEXITCODE
+}
 
 # ---------------------------------------------------------------------------
 # Logging Configuration
