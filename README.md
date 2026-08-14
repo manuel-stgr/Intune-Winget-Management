@@ -69,7 +69,7 @@ Before using this in Intune, the `$AppId` variable must be adjusted directly ins
     ```
     In some cases it is better to use a custom InstallerType:
     - Bypass Default Installer Conflicts: Winget packages sometimes default to installer formats (like `.msi` or generic `.exe`) that may fail in the Intune `SYSTEM` context or trigger unwanted reboot prompts. Specifying an explicit type (e.g., `nullsoft` for NSIS-based installers like VLC) forces Winget to download and parse the exact installer framework required for clean, silent deployments.
-    - Bypass Default Installer Conflicts: Winget packages sometimes default to installer formats (like `.msi` or generic `.exe`) that may fail in the Intune `SYSTEM` context or trigger unwanted reboot prompts. Specifying an explicit type (e.g., `nullsoft` for NSIS-based installers like VLC) forces Winget to download and parse the exact installer framework required for clean, silent deployments.
+    - Ensure Silent Execution: Certain Winget manifests do not pass the correct silent flags by default for all available installer types. Forcing a specific installer type (e.g., `inno`, `wix`, or `msi`) guarantees that Winget applies the matching standardized quiet switches (`/VERYSILENT`, `/qn`, etc.).
     - Target Specific Application Architectures: When an application provides multiple installer architectures under a single Winget ID, overriding the installer type helps ensure the script deploys the intended binary build reliably across all managed endpoints.
     
   - Uninstall:
