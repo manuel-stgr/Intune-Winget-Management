@@ -46,7 +46,7 @@ To ensure transparency during deployment and enable tracking for automated updat
 
 2. **JSON Inventory Database (`WingetInventory.json`)**
    - Automatically generated/updated when apps are installed/uninstalled via `Manage-WingetApp.ps1`.
-   - Stores metadata (such as `AppID`, installation date, and version) for every application deployed through this framework.
+   - Stores metadata (such as `AppID`, installation date, and `InstallerType`) for every application deployed through this framework.
    - Serves as the single source of truth for the **`auto/` maintenance mode**, ensuring that auto-updates only apply to managed applications without interfering with software installed manually by users.
 
 
