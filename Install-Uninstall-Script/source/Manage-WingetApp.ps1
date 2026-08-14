@@ -3,21 +3,19 @@
    Install/Uninstall Winget-APP
  
 .DESCRIPTION
-  The specified Winget-APP is installed or uninstalled system-wide (--scope machine, some installer bugs), provided an installer is available. It automatically accepts the license/EULA.
+  The specified Winget-APP is installed or uninstalled system-wide (--scope machine, some installer makes problem), provided an installer is available. It automatically accepts the license/EULA.
 
 .EXAMPLE
   Install: 	powershell.exe -ExecutionPolicy Bypass -File ".\Manage-WingetApp.ps1" -Action Install -AppId "Notepad++.Notepad++" -InstallerType "wix"
   Uninstall: 	powershell.exe -ExecutionPolicy Bypass -File ".\Manage-WingetApp.ps1" -Action Uninstall -AppId "Notepad++.Notepad++"
   
 .NOTES
-  Version:        2.0
-  Github-Author:  manuel-stgr
-  License-URL:    https://github.com/manuel-stgr/Intune-Winget-Management/blob/main/LICENSE  
+  Version:        2.1
+  Github-Author:  manuel-stgr       
+  License-URL:    https://github.com/manuel-stgr/Intune-Winget-Management/blob/main/LICENSE   
   Creation Date:  2026-08-13
-  Purpose/Change: Added JSON-based local tracking database to maintain an inventory of installed packages.
+  Purpose/Change: Corrextion Winget-Path
 #>
-
-
 
 
 [CmdletBinding()]
@@ -37,12 +35,46 @@ param (
     [string]$CustomUninstallString
 )
 
+
+# ---------------------------------------------------------------------------
+# Ensure that the script runs in the 64-bit host
+# ---------------------------------------------------------------------------
+
+if ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess) {
+    Write-Log "32-Bit PowerShell detected. Relaunching in 64-bit context..." "WARN" "Yellow"
+    $sysnativePowerShell = "$env:SystemRoot\SysNative\WindowsPowerShell\v1.0\powershell.exe"
+    
+    if (Test-Path $sysnativePowerShell) {
+        $relaunchArgs = @(
+            "-ExecutionPolicy", "Bypass",
+            "-File", $MyInvocation.MyCommand.Path,
+            "-Action", $Action,
+            "-AppId", $AppId
+        )
+        if ($PSBoundParameters.ContainsKey('InstallerType')) {
+            $relaunchArgs += @("-InstallerType", $InstallerType)
+        }
+        if ($PSBoundParameters.ContainsKey('CustomUninstallString')) {
+            $relaunchArgs += @("-CustomUninstallString", $CustomUninstallString)
+        }
+
+        & $sysnativePowerShell @relaunchArgs
+        exit $LASTEXITCODE
+    } else {
+        Write-Log "SysNative PowerShell could not be found." "ERROR" "Red"
+    }
+}
+
+
+
+
 # ---------------------------------------------------------------------------
 # Logging & Database Configuration
 # ---------------------------------------------------------------------------
-$LogDirectory = "$env:ProgramData\Microsoft\IntuneManagementExtension\Logs"
+
+$LogDirectory = "$env:ProgramData\IntuneWingetManagement\Logs"
 $LogPath      = "$LogDirectory\Winget-Manage.log"
-$DatabasePath = "$env:ProgramData\Microsoft\IntuneManagementExtension\WingetInventory.json"
+$DatabasePath = "$env:ProgramData\IntuneWingetManagement\WingetInventory.json"
 
 if (-not (Test-Path $LogDirectory)) {
     New-Item -ItemType Directory -Path $LogDirectory -Force | Out-Null
@@ -61,9 +93,22 @@ function Write-Log {
     Write-Host $LogEntry -ForegroundColor $Color
 }
 
+
+# ---------------------------------------------------------------------------
+# delete Log after 20MB
+# ---------------------------------------------------------------------------
+
+if ((Test-Path -Path $LogPath) -and ((Get-Item -Path $LogPath).Length -gt 20MB)) {
+    
+    Clear-Content -Path $LogPath -Force -ErrorAction SilentlyContinue
+
+    Write-Log "Log reset, reached 20MB" "WARN" "Yellow"
+}
+
 # ---------------------------------------------------------------------------
 # Database Management Functions (JSON-based Inventory)
 # ---------------------------------------------------------------------------
+
 function Get-AppInventory {
     if (Test-Path $DatabasePath) {
         try {
@@ -124,39 +169,13 @@ function Remove-AppFromDatabase {
 
 Write-Log "=== Start Script (Action: $Action | AppId: $AppId | InstallerType: $InstallerType) ===" "INFO" "Cyan"
 
-# ---------------------------------------------------------------------------
-# 0. Ensure that the script runs in the 64-bit host
-# ---------------------------------------------------------------------------
-if ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess) {
-    Write-Log "32-Bit PowerShell detected. Relaunching in 64-bit context..." "WARN" "Yellow"
-    $sysnativePowerShell = "$env:SystemRoot\SysNative\WindowsPowerShell\v1.0\powershell.exe"
-    
-    if (Test-Path $sysnativePowerShell) {
-        $relaunchArgs = @(
-            "-ExecutionPolicy", "Bypass",
-            "-File", $MyInvocation.MyCommand.Path,
-            "-Action", $Action,
-            "-AppId", $AppId
-        )
-        if ($PSBoundParameters.ContainsKey('InstallerType')) {
-            $relaunchArgs += @("-InstallerType", $InstallerType)
-        }
-        if ($PSBoundParameters.ContainsKey('CustomUninstallString')) {
-            $relaunchArgs += @("-CustomUninstallString", $CustomUninstallString)
-        }
 
-        & $sysnativePowerShell @relaunchArgs
-        exit $LASTEXITCODE
-    } else {
-        Write-Log "SysNative PowerShell could not be found." "ERROR" "Red"
-    }
-}
 
 # ---------------------------------------------------------------------------
-# 1. Determine the path to winget.exe
+# Determine the path to winget.exe
 # ---------------------------------------------------------------------------
 function Get-WingetPath {
-    $winget = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps\Microsoft.DesktopAppInstaller_*_x64__8wekyb3d8bbwe\winget.exe" -ErrorAction SilentlyContinue | 
+    $winget = Get-ChildItem -Path "$env:LocalAppData\Microsoft\WindowsApps\winget.exe" -ErrorAction SilentlyContinue | 
               Sort-Object LastWriteTime -Descending | 
               Select-Object -ExpandProperty FullName -First 1
 
@@ -174,7 +193,10 @@ if (-not $wingetExe -or -not (Test-Path $wingetExe)) {
     exit 1
 }
 
+# ---------------------------------------------------------------------------
 # Helper function for executing WinGet commands
+# ---------------------------------------------------------------------------
+
 function Invoke-WingetCommand {
     param ([array]$Arguments)
     
@@ -213,7 +235,6 @@ function Invoke-NativeUninstall {
         [string]$UninstallCmd
     )
 
-    # 1. Direct command passed (e.g., VLC uninstallation path)
     if ($UninstallCmd) {
         $expandedCmd = [System.Environment]::ExpandEnvironmentVariables($UninstallCmd).Trim()
         Write-Log "Executing custom uninstaller: $expandedCmd" "INFO" "Yellow"
@@ -222,23 +243,20 @@ function Invoke-NativeUninstall {
             $exePath  = ""
             $argsList = ""
 
-            # Case A: Path is already in quotation marks "C:\Path\app.exe" /S
             if ($expandedCmd -match '^"(?<exe>[^"]+)"\s*(?<args>.*)$') {
                 $exePath  = $Matches['exe']
                 $argsList = $Matches['args']
             } 
-            # Case B: Path has no quotation marks C:\Program Files\...\app.exe /S
             elseif ($expandedCmd -match '^(?<exe>.*?\.(?:exe|bat|cmd))\s*(?<args>.*)$') {
                 $exePath  = $Matches['exe'].Trim('"')
                 $argsList = $Matches['args']
             } 
-            # Fallback
             else {
                 $exePath  = $expandedCmd
                 $argsList = ""
             }
 
-            Write-Log "Extracted path: '$exePath' | Argument: '$argsList'" "INFO" "Gray"
+            Write-Log "Extrahierter Pfad: '$exePath' | Argumente: '$argsList'" "INFO" "Gray"
 
             $proc = Start-Process -FilePath $exePath -ArgumentList $argsList -Wait -PassThru -NoNewWindow
             return ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010)
@@ -248,7 +266,7 @@ function Invoke-NativeUninstall {
         }
     }
 
-    # 2. Fallback: Search Registry
+    # 2. Fallback: Registry-Search
     Write-Log "Searching Registry for uninstaller matching '$AppId'..." "WARN" "Yellow"
     $regPaths = @(
         "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
@@ -289,7 +307,7 @@ function Invoke-NativeUninstall {
 }
 
 # ---------------------------------------------------------------------------
-# 2. Execution Logic
+# Execution Logic
 # ---------------------------------------------------------------------------
 $installArgs = @(
     "install",
