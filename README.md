@@ -38,7 +38,7 @@ Running under 32-bit PowerShell causes path redirection errors for `%ProgramFile
 ` Detect-WingetApp.ps1`
 - Purpose: Custom Intune detection script used to verify whether a specific application is already installed on the endpoint.
 
-###Configuration:
+### Configuration:
 Before using this in Intune, the `$AppId` variable must be adjusted directly inside the `Detect-WingetApp.ps1` file for the respective application (e.g., $AppID = "Notepad++.Notepad++" or $AppID = "VideoLAN.VLC").
 
 ## 2. Install & Uninstall Script
