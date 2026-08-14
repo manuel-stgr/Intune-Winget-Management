@@ -2,7 +2,7 @@
 
 A flexible PowerShell toolkit for deploying, uninstalling, and automatically maintaining software via the **Windows Package Manager (Winget)** in **Microsoft Intune**.
 
----
+----
 
 ## 📁 Repository Structure
 
@@ -37,7 +37,6 @@ To ensure transparency during deployment and enable tracking for automated updat
 * **Log Directory:** `C:\ProgramData\IntuneWingetManagement\Logs`
 * **Inventory Database:** `C:\ProgramData\IntuneWingetManagement\WingetInventory.json`
 
----
 
 ### Functionality
 
@@ -49,6 +48,7 @@ To ensure transparency during deployment and enable tracking for automated updat
    - Stores metadata (such as `AppID`, installation date, and `InstallerType`) for every application deployed through this framework.
    - Serves as the single source of truth for the **`auto/` maintenance mode**, ensuring that auto-updates only apply to managed applications without interfering with software installed manually by users.
 
+---
 
 # Components & Script Description
 When configuring Intune Win32 Apps or Proactive Remediations, always set "Run script as 32-bit process on 64-bit clients" to `No`.
@@ -60,6 +60,8 @@ Running under 32-bit PowerShell causes path redirection errors for `%ProgramFile
 
 ### Configuration:
 Before using this in Intune, the `$AppId` variable must be adjusted directly inside the `Detect-WingetApp.ps1` file for the respective application (e.g., `$AppID = "Notepad++.Notepad++"` or $AppID = "VideoLAN.VLC").
+
+---
 
 ## 2. Install & Uninstall Script
 
@@ -105,6 +107,8 @@ Before using this in Intune, the `$AppId` variable must be adjusted directly ins
 `
 - Purpose: Pre-packaged .intunewin file ready for direct upload to the Microsoft Intune Admin Center (win32-APP).
 
+---
+
 ## 3. Maintenance Scripts (Intune Proactive Remediations)
 
 The `Maintenance-Script/` folder contains script pairs designed for **Microsoft Intune Proactive Remediations**. These scripts automate software patch management via WinGet across your endpoints.
@@ -133,6 +137,8 @@ The framework provides **three distinct deployment modes** depending on your upd
 3. `specified/` **Targeted Application List**
    - Scope: Upgrades a curated list of applications.
    - Behavior: Targets only specific AppID entries hardcoded inside an array within the script (e.g., `$appsToUpdate` = @("7zip.7zip", "Google.Chrome")).
+
+---
 
 # Author & License
 - Author: manuel-stgr
