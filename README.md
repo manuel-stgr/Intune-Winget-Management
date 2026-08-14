@@ -39,10 +39,26 @@ Running under 32-bit PowerShell causes path redirection errors for `%ProgramFile
 `
 - Purpose: Custom Intune detection script used to verify whether a specific application is already installed on the endpoint.
 
+###Configuration:
+Before using this in Intune, the `$AppId` variable must be adjusted directly inside the `Detect-WingetApp.ps1` file for the respective application (e.g., $AppID = "Notepad++.Notepad++" or $AppID = "VideoLAN.VLC").
+
 ## 2. Install & Uninstall Script
-`Manage-WingetApp.ps1
-`
+
+###`Manage-WingetApp.ps1`
+
 - Purpose: Universal Win32 App deployment script that handles both the installation and uninstallation of specified Winget packages.
+
+#### Script Parameters
+
+| Parameter | Required | Type | Allowed Values | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `-Action` | **Yes** | String | `Install`, `Uninstall` | Defines whether to install or remove the specified application. |
+| `-AppId` | **Yes** | String | *String* | The exact Winget package ID (e.g., `Notepad++.Notepad++`). |
+| `-InstallerType` | **No** | String | `wix`, `nullsoft`, `msi`, `exe`, `inno`, `burn`, `msix`, `portable`, `zip` | Overrides/forces a specific installer architecture during installation. |
+| `-CustomUninstallString` | **No** | String | *String* | Custom uninstallation command line used as a fallback if Winget uninstallation fails or isn't supported. |
+
+---
+  
 - Example (Notepad++, VLC):
   - Install, with or without Installer-Type:
     ```
