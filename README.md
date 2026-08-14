@@ -124,13 +124,13 @@ The framework provides **three distinct deployment modes** depending on your upd
         └── Remediation-WingetUpdates.ps1
 ```
 ### Update Modes Overview
-1. `all/` ** Full System Upgrade **
+1. `all/` **Full System Upgrade**
    - Scope: Upgrades all WinGet-supported applications installed on the endpoint.
    - Behavior: Runs `winget upgrade --all` to keep all software updated regardless of how it was originally installed.
-2. `auto/` ** Managed Applications Only ** (recommended)
+2. `auto/` **Managed Applications Only** (recommended)
    - Scope: Upgrades only applications that were deployed via this framework.
    - Behavior: Checks against a local JSON tracking database created during app deployment. Unmanaged or user-installed software is ignored.
-3. `specified/` ** Targeted Application List **
+3. `specified/` **Targeted Application List**
    - Scope: Upgrades a curated list of applications.
    - Behavior: Targets only specific AppID entries hardcoded inside an array within the script (e.g., `$appsToUpdate` = @("7zip.7zip", "Google.Chrome")).
 
