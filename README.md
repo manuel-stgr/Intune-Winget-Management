@@ -35,8 +35,7 @@ When configuring Intune Win32 Apps or Proactive Remediations, always set "Run sc
 Running under 32-bit PowerShell causes path redirection errors for `%ProgramFiles%`, registry lookup failures `(missing standard HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall keys)`, and context mismatches when interacting with `winget.exe` in the `SYSTEM` context.
 
 ## 1. Detection-Script
-` Detect-WingetApp.ps1
-`
+` Detect-WingetApp.ps1`
 - Purpose: Custom Intune detection script used to verify whether a specific application is already installed on the endpoint.
 
 ###Configuration:
@@ -44,7 +43,7 @@ Before using this in Intune, the `$AppId` variable must be adjusted directly ins
 
 ## 2. Install & Uninstall Script
 
-###`Manage-WingetApp.ps1`
+`Manage-WingetApp.ps1`
 
 - Purpose: Universal Win32 App deployment script that handles both the installation and uninstallation of specified Winget packages.
 
@@ -60,17 +59,18 @@ Before using this in Intune, the `$AppId` variable must be adjusted directly ins
 ---
   
 - Example (Notepad++, VLC):
-  - Install, with or without Installer-Type:
-    ```
-    powershell.exe -ExecutionPolicy Bypass -File ".\Manage-WingetApp.ps1" -Action Install -AppId "Notepad++.Notepad++" -InstallerType "wix"
-    ```
+  - Install without InstallerType
     ```
     powershell.exe -ExecutionPolicy Bypass -File ".\Manage-WingetApp.ps1" -Action Install -AppId "Notepad++.Notepad++"
     ```
-    - In the case of VLC, it is better to use the InstallerType nullsoft (exe).
-      ```
-      "powershell.exe -ExecutionPolicy Bypass -File ".\Manage-WingetApp.ps1" -Action Install -AppId "VideoLAN.VLC" -InstallerType "nullsoft"
-      ```
+  - Install with InstallerType
+    ```
+    powershell.exe -ExecutionPolicy Bypass -File ".\Manage-WingetApp.ps1" -Action Install -AppId "Notepad++.Notepad++" -InstallerType "wix"
+    ```
+    In some cases it is better to use a custom InstallerType:
+    - Bypass Default Installer Conflicts: Winget packages sometimes default to installer formats (like `.msi` or generic `.exe`) that may fail in the Intune `SYSTEM` context or trigger unwanted reboot prompts. Specifying an explicit type (e.g., `nullsoft` for NSIS-based installers like VLC) forces Winget to download and parse the exact installer framework required for clean, silent deployments.
+    - Bypass Default Installer Conflicts: Winget packages sometimes default to installer formats (like `.msi` or generic `.exe`) that may fail in the Intune `SYSTEM` context or trigger unwanted reboot prompts. Specifying an explicit type (e.g., `nullsoft` for NSIS-based installers like VLC) forces Winget to download and parse the exact installer framework required for clean, silent deployments.
+    - Target Specific Application Architectures: When an application provides multiple installer architectures under a single Winget ID, overriding the installer type helps ensure the script deploys the intended binary build reliably across all managed endpoints.
     
   - Uninstall:
     ```
@@ -85,21 +85,34 @@ Before using this in Intune, the `$AppId` variable must be adjusted directly ins
 `
 - Purpose: Pre-packaged .intunewin file ready for direct upload to the Microsoft Intune Admin Center (win32-APP).
 
-## 3. Maintenance Scripts (Intune Remediation)
-`
-Detection-WingetUpdates.ps1
-`
-- Purpose: Serves as the detection rule for Intune Proactive Remediations. Checks if pending software updates are available via Winget.
+## 3. Maintenance Scripts (Intune Proactive Remediations)
 
-`
-Remediation-WingetUpdates-All.ps1
-`
-- Purpose: Triggers a full system update for all installed applications supported by Winget (winget upgrade --all).
+The `Maintenance-Script/` folder contains script pairs designed for **Microsoft Intune Proactive Remediations**. These scripts automate software patch management via WinGet across your endpoints.
 
-`
-Remediation-WingetUpdates-Specified.ps1
-`
-- Purpose: Performs targeted updates, upgrading only the specific application IDs defined within the script array.
+The framework provides **three distinct deployment modes** depending on your update strategy:
+
+```
+└── Maintenance-Script/
+    ├── all/
+    │   ├── Detection-WingetUpdates.ps1
+    │   └── Remediation-WingetUpdates.ps1
+    ├── auto/
+    │   ├── Detection-WingetUpdates.ps1
+    │   └── Remediation-WingetUpdates.ps1
+    └── specified/
+        ├── Detection-WingetUpdates.ps1
+        └── Remediation-WingetUpdates.ps1
+```
+### Update Modes Overview
+1. `all/` (Full System Upgrade)
+   - Scope: Upgrades all WinGet-supported applications installed on the endpoint.
+   - Behavior: Runs `winget upgrade --all` to keep all software updated regardless of how it was originally installed.
+2. `auto/` (Managed Applications Only)
+   - Scope: Upgrades only applications that were deployed via this framework.
+   - Behavior: Checks against a local JSON tracking database created during app deployment. Unmanaged or user-installed software is ignored.
+3. `specified/` (Targeted Application List)
+   - Scope: Upgrades a curated list of applications.
+   - Behavior: Targets only specific AppID entries hardcoded inside an array within the script (e.g., `$appsToUpdate` = @("7zip.7zip", "Google.Chrome")).
 
 # Author & License
 - Author: manuel-stgr
