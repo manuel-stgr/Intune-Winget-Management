@@ -10,11 +10,11 @@
   Uninstall: 	powershell.exe -ExecutionPolicy Bypass -File ".\Manage-WingetApp.ps1" -Action Uninstall -AppId "Notepad++.Notepad++"
   
 .NOTES
-  Version:        2.1
+  Version:        2.2
   Github-Author:  manuel-stgr       
   License-URL:    https://github.com/manuel-stgr/Intune-Winget-Management/blob/main/LICENSE   
   Creation Date:  2026-08-13
-  Purpose/Change: Corrextion Winget-Path
+  Purpose/Change: 64bit Check, start in 64bit powershell if 32bit; bug with log
 #>
 
 
@@ -34,37 +34,6 @@ param (
     [Parameter(Mandatory = $false)]
     [string]$CustomUninstallString
 )
-
-
-# ---------------------------------------------------------------------------
-# Ensure that the script runs in the 64-bit host
-# ---------------------------------------------------------------------------
-
-if ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess) {
-    Write-Log "32-Bit PowerShell detected. Relaunching in 64-bit context..." "WARN" "Yellow"
-    $sysnativePowerShell = "$env:SystemRoot\SysNative\WindowsPowerShell\v1.0\powershell.exe"
-    
-    if (Test-Path $sysnativePowerShell) {
-        $relaunchArgs = @(
-            "-ExecutionPolicy", "Bypass",
-            "-File", $MyInvocation.MyCommand.Path,
-            "-Action", $Action,
-            "-AppId", $AppId
-        )
-        if ($PSBoundParameters.ContainsKey('InstallerType')) {
-            $relaunchArgs += @("-InstallerType", $InstallerType)
-        }
-        if ($PSBoundParameters.ContainsKey('CustomUninstallString')) {
-            $relaunchArgs += @("-CustomUninstallString", $CustomUninstallString)
-        }
-
-        & $sysnativePowerShell @relaunchArgs
-        exit $LASTEXITCODE
-    } else {
-        Write-Log "SysNative PowerShell could not be found." "ERROR" "Red"
-    }
-}
-
 
 
 
@@ -104,6 +73,37 @@ if ((Test-Path -Path $LogPath) -and ((Get-Item -Path $LogPath).Length -gt 20MB))
 
     Write-Log "Log reset, reached 20MB" "WARN" "Yellow"
 }
+
+
+# ---------------------------------------------------------------------------
+# Ensure that the script runs in the 64-bit host
+# ---------------------------------------------------------------------------
+
+if ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess) {
+    Write-Log "32-Bit PowerShell detected. Relaunching in 64-bit context..." "WARN" "Yellow"
+    $sysnativePowerShell = "$env:SystemRoot\SysNative\WindowsPowerShell\v1.0\powershell.exe"
+    
+    if (Test-Path $sysnativePowerShell) {
+        $relaunchArgs = @(
+            "-ExecutionPolicy", "Bypass",
+            "-File", $MyInvocation.MyCommand.Path,
+            "-Action", $Action,
+            "-AppId", $AppId
+        )
+        if ($PSBoundParameters.ContainsKey('InstallerType')) {
+            $relaunchArgs += @("-InstallerType", $InstallerType)
+        }
+        if ($PSBoundParameters.ContainsKey('CustomUninstallString')) {
+            $relaunchArgs += @("-CustomUninstallString", $CustomUninstallString)
+        }
+
+        & $sysnativePowerShell @relaunchArgs
+        exit $LASTEXITCODE
+    } else {
+        Write-Log "SysNative PowerShell could not be found." "ERROR" "Red"
+    }
+}
+
 
 # ---------------------------------------------------------------------------
 # Database Management Functions (JSON-based Inventory)
