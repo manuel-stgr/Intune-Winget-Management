@@ -6,12 +6,20 @@
   First, it is checked whether the specified hour has passed; the check for winget updates (ALL) only takes place from that point onwards.
  
 .NOTES
-  Version:        1.1
+  Version:        1.2
   Github-Author:  manuel-stgr
   License-URL:    https://github.com/manuel-stgr/Intune-Winget-Management/blob/main/LICENSE        
   Creation Date:  2026-08-13
-  Purpose/Change: Correction of the Winget language system dependency.
+  Purpose/Change: make Script clearer
 #>
+
+
+# ---------------------------------------------------------------------------
+# Time-Configuration
+# ---------------------------------------------------------------------------
+
+$startHour = 14
+
 
 # ---------------------------------------------------------------------------
 # 64-bit PowerShell Redirection
@@ -63,7 +71,6 @@ if ((Test-Path -Path $LogPath) -and ((Get-Item -Path $LogPath).Length -gt 20MB))
 # ---------------------------------------------------------------------------
 
 $currentHour = (Get-Date).Hour
-$startHour = 14
 
 if ($currentHour -lt $startHour) {
     Write-Log "Time ($(Get-Date -Format 'HH:mm')) is before 2:00 PM. Maintenance skipped." "INFO" "Yellow"
