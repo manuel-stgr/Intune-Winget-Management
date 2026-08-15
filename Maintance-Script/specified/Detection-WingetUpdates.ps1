@@ -6,12 +6,18 @@
    First, it is checked whether the specified hour has passed; the check for winget updates only takes place from that point onwards for defined App IDs.
  
 .NOTES
-   Version:         1.0
+   Version:         1.1
    Github-Author:   manuel-stgr
    License-URL:     https://github.com/manuel-stgr/Intune-Winget-Management/blob/main/LICENSE        
    Creation Date:   2026-08-14
-   Purpose/Change:  Creation
+   Purpose/Change:  make Script clearer
 #>
+
+# ---------------------------------------------------------------------------
+# Time-Configuration
+# ---------------------------------------------------------------------------
+
+$startHour = 14
 
 # ---------------------------------------------------------------------------
 # Configuration Winget-AppIDs
@@ -76,7 +82,6 @@ if ((Test-Path -Path $LogPath) -and ((Get-Item -Path $LogPath).Length -gt 20MB))
 # ---------------------------------------------------------------------------
 
 $currentHour = (Get-Date).Hour
-$startHour = 14
 
 if ($currentHour -lt $startHour) {
     # Outside the maintenance window -> No action required for Intune
