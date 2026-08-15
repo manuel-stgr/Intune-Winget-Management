@@ -8,12 +8,19 @@
     and checks if Winget has pending updates for any of those specific App IDs.
 
 .NOTES
-    Version:        1.0
+    Version:        1.1
     Github-Author:  manuel-stgr
     License-URL:    https://github.com/manuel-stgr/Intune-Winget-Management/blob/main/LICENSE
     Creation Date:  2026-08-14
-    Purpose/Change: Creation
+    Purpose/Change: make Script clearer
 #>
+
+
+# ---------------------------------------------------------------------------
+# Time-Configuration
+# ---------------------------------------------------------------------------
+
+$startHour = 14
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +89,6 @@ if ((Test-Path -Path $LogPath) -and ((Get-Item -Path $LogPath).Length -gt 20MB))
 # Time Window Check (14:00 to 24:00)
 # ---------------------------------------------------------------------------
 $currentHour = (Get-Date).Hour
-$startHour   = 14
 
 if ($currentHour -lt $startHour) {
     Write-Log "Time ($(Get-Date -Format 'HH:mm')) is before 2:00 PM. Maintenance skipped." "INFO" "Yellow"
