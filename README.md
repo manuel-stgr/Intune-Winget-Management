@@ -92,7 +92,7 @@ Before using this in Intune, the `$AppId` variable must be adjusted directly ins
     ```
   - Install with InstallerType
     ```
-    powershell.exe -ExecutionPolicy Bypass -File ".\Manage-WingetApp.ps1" -Action Install -AppId "Notepad++.Notepad++" -InstallerType "wix"
+    powershell.exe -ExecutionPolicy Bypass -File ".\Manage-WingetApp.ps1" -Action Install -AppId "VideoLAN.VLC" -InstallerType "nullsoft"
     ```
     In some cases it is better to use a custom InstallerType:
     - Bypass Default Installer Conflicts: Winget packages sometimes default to installer formats (like `.msi` or generic `.exe`) that may fail in the Intune `SYSTEM` context or trigger unwanted reboot prompts. Specifying an explicit type (e.g., `nullsoft` for NSIS-based installers like VLC) forces Winget to download and parse the exact installer framework required for clean, silent deployments.
