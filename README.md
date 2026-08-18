@@ -2,7 +2,7 @@
 
 A flexible PowerShell toolkit for deploying, uninstalling, and automatically maintaining software via the **Windows Package Manager (Winget)** in **Microsoft Intune**.
 
-----
+---
 
 ## 📁 Repository Structure
 
@@ -28,6 +28,9 @@ A flexible PowerShell toolkit for deploying, uninstalling, and automatically mai
         ├── Detection-WingetUpdates.ps1
         └── Remediation-WingetUpdates.ps1
 ```
+
+---
+
 ## 📁 Logging & Local Database Paths
 
 To ensure transparency during deployment and enable tracking for automated updates, the framework stores logs and inventory state in a central location on the client endpoint (`C:\ProgramData\IntuneWingetManagement\`).
@@ -53,6 +56,8 @@ To ensure transparency during deployment and enable tracking for automated updat
 # Components & Script Description
 When configuring Intune Win32 Apps or Proactive Remediations, always set "Run script as 32-bit process on 64-bit clients" to `No`.
 Running under 32-bit PowerShell causes path redirection errors for `%ProgramFiles%`, registry lookup failures `(missing standard HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall keys)`, and context mismatches when interacting with `winget.exe` in the `SYSTEM` context.
+
+---
 
 ## 1. Detection-Script
 ` Detect-WingetApp.ps1`
@@ -127,6 +132,9 @@ The framework provides **three distinct deployment modes** depending on your upd
         ├── Detection-WingetUpdates.ps1
         └── Remediation-WingetUpdates.ps1
 ```
+
+---
+
 ### Update Modes Overview
 1. `all/` **Full System Upgrade**
    - Scope: Upgrades all WinGet-supported applications installed on the endpoint.
@@ -138,6 +146,7 @@ The framework provides **three distinct deployment modes** depending on your upd
    - Scope: Upgrades a curated list of applications.
    - Behavior: Targets only specific AppID entries hardcoded inside an array within the script (e.g., `$appsToUpdate` = @("Notepad++.Notepad++", "VideoLAN.VLC")).
 
+---
 
 ### Key Features & Configuration Options
 
