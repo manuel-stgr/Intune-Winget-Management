@@ -6,7 +6,7 @@
    First, it is checked whether the specified hour has passed; the check for winget updates only takes place from that point onwards for defined App IDs.
  
 .NOTES
-   Version:         1.1
+   Version:         2.0
    Github-Author:   manuel-stgr
    License-URL:     https://github.com/manuel-stgr/Intune-Winget-Management/blob/main/LICENSE        
    Creation Date:   2026-08-14
