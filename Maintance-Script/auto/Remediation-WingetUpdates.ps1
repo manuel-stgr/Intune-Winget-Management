@@ -7,13 +7,24 @@
     and executes silent Winget upgrades for each found application.
 
 .NOTES
-    Version:        1.0
+    Version:        2.0
     Github-Author:  manuel-stgr
     License-URL:    https://github.com/manuel-stgr/Intune-Winget-Management/blob/main/LICENSE
     Creation Date:  2026-08-14
-    Purpose/Change: Creation
+    Purpose/Change: add Announcement prior to the update
 #>
 
+
+# ---------------------------------------------------------------------------
+# Update Message Configuration
+# ---------------------------------------------------------------------------
+
+$UpdateMessageTitle = "Scheduled Software Maintenance"
+$UpdateMessageText = "Automatic software updates via Winget will install in 2 minutes. Please save your work."
+$UpdateToWaitAfterMessage = 120
+
+$UpdateFinishedTitle = "Software Update Completed"
+$UpdateFinishedText = "All pending software updates have been successfully installed. You can resume your work."
 
 # ---------------------------------------------------------------------------
 # 64-bit PowerShell Redirection
@@ -91,9 +102,80 @@ if (-not $wingetExe -or -not (Test-Path $wingetExe)) {
     exit 1
 }
 
+
+# ---------------------------------------------------------------------------
+# Toast Notification & Delay Configuration
+# ---------------------------------------------------------------------------
+
+function Show-ToastNotification {
+    param(
+        [string]$Title = "Example Title",
+        [string]$Message = "Example Message",
+        [string]$AppIdf = "Intune-Winget-Management",
+        [string]$AppDisplayName = "Intune Winget Management"
+    )
+
+    try {
+        # 1) Register AppIDf with display name
+        $classesPath = "HKCU:\Software\Classes\AppUserModelId\$AppIdf"
+        if (-not (Test-Path $classesPath)) {
+            New-Item -Path $classesPath -Force | Out-Null
+        }
+        New-ItemProperty -Path $classesPath -Name "DisplayName" -Value $AppDisplayName -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $classesPath -Name "IconUri" -Value "%SystemRoot%\System32\SecurityAndMaintenance.ico" -PropertyType ExpandString -Force | Out-Null
+
+        # 2) Automatically enable notification permissions for this AppIDf
+        $settingsPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings\$AppIdf"
+        if (-not (Test-Path $settingsPath)) {
+            New-Item -Path $settingsPath -Force | Out-Null
+        }
+        New-ItemProperty -Path $settingsPath -Name "Enabled" -Value 1 -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $settingsPath -Name "ShowInActionCenter" -Value 1 -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $settingsPath -Name "ShowBanner" -Value 1 -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $settingsPath -Name "Sound" -Value 1 -PropertyType DWord -Force | Out-Null
+
+        # 3) Display Toast notification
+        [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+        [Windows.UI.Notifications.ToastNotification, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+        [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+
+        [xml]$ToastXml = @"
+<toast>
+    <visual>
+        <binding template="ToastGeneric">
+            <text>$Title</text>
+            <text>$Message</text>
+        </binding>
+    </visual>
+    <audio src="ms-winsoundevent:Notification.Default" />
+</toast>
+"@
+
+        $xmlDoc = New-Object Windows.Data.Xml.Dom.XmlDocument
+        $xmlDoc.LoadXml($ToastXml.OuterXml)
+
+        $toast = [Windows.UI.Notifications.ToastNotification]::new($xmlDoc)
+        $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($AppIdf)
+        $notifier.Show($toast)
+
+        Write-Log "Toast notification sent successfully." "INFO" "Cyan"
+    }
+    catch {
+        Write-Log "Error sending toast notification: $_" "WARN" "Yellow"
+    }
+}
+
 # ---------------------------------------------------------------------------
 # Execute Updates for Database Apps
 # ---------------------------------------------------------------------------
+
+# Send toast ... Update start Notification and wait x minutes
+Write-Log "Sending Update wait x minutes notification to the user..." "INFO" "Cyan"
+Show-ToastNotification -Title $UpdateMessageTitle -Message $UpdateMessageText
+
+ $UpdateToWaitAfterMessageMinutes = $UpdateToWaitAfterMessage / 60
+Write-Log "Waiting $UpdateToWaitAfterMessageMinutes minutes before starting updates..." "INFO" "Yellow"
+Start-Sleep -Seconds $UpdateToWaitAfterMessage
 
 # Refresh Winget sources before running upgrades
 & $wingetExe source update --accept-source-agreements | Out-Null
@@ -125,6 +207,10 @@ foreach ($appId in $appsToUpdate) {
         $hasErrors = $true
     }
 }
+
+# Send toast ... Update Finished.
+Write-Log "Sending Update finished notification to the user..." "INFO" "Cyan"
+Show-ToastNotification -Title $UpdateFinishedTitle -Message $UpdateFinishedText
 
 if ($hasErrors) {
     Write-Log "Remediation completed with some errors." "ERROR" "Red"
