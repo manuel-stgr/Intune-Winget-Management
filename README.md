@@ -138,6 +138,23 @@ The framework provides **three distinct deployment modes** depending on your upd
    - Scope: Upgrades a curated list of applications.
    - Behavior: Targets only specific AppID entries hardcoded inside an array within the script (e.g., `$appsToUpdate` = @("Notepad++.Notepad++", "VideoLAN.VLC")).
 
+
+### Key Features & Configuration Options
+
+#### 🕒 Customizable Execution Windows (`Detection-WingetUpdates.ps1`)
+The detection script features an adaptable schedule matrix (`$schedule`) that allows IT admins to strictly enforce maintenance windows according to their organizational needs:
+
+* **Tailored Schedule:** Fully configurable day-by-day and time-by-time array. Set custom execution slots, block entire days (`@()`), or allow full 24-hour windows (`00:00 - 23:59`).
+* **Multi-Window Support:** Define multiple active periods within a single day to align with lunch breaks, off-peak hours, or specific shift schedules.
+* **Resource Optimization:** If a check occurs outside an active window, the script exits cleanly without triggering remediation—preventing unwanted background scans and CPU usage during peak working hours.
+
+#### 🔔 Customizable Toast Notifications (`Remediation-WingetUpdates.ps1`)
+To balance patch compliance with user productivity, notification titles, messages, and delay timers can be tailored per environment:
+
+* **Pre-Update Toast Warning:** Customize the header (`$UpdateMessageTitle`) and message body (`$UpdateMessageText`) sent to the lower-right Windows Notification Center to inform users before patching starts.
+* **Flexible Countdown Timer:** Adjust the wait duration (`$UpdateToWaitAfterMessage`) in seconds—giving end users adequate time to save their work or close sensitive applications.
+* **Completion Confirmation:** Set a final notification (`$UpdateFinishedTitle` / `$UpdateFinishedText`) to signal when background installation has concluded.
+
 ---
 
 # Author & License
