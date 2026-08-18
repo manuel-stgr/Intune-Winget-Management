@@ -6,11 +6,11 @@
   First, it is checked whether the specified hour has passed; the check for winget updates (ALL) only takes place from that point onwards.
  
 .NOTES
-  Version:        2.0
+  Version:        2.1
   Github-Author:  manuel-stgr
   License-URL:    https://github.com/manuel-stgr/Intune-Winget-Management/blob/main/LICENSE        
   Creation Date:  2026-08-13
-  Purpose/Change: add Schedule
+  Purpose/Change: add Schedule and dynamic Update check
 #>
 
 # ---------------------------------------------------------------------------
@@ -124,35 +124,42 @@ if (-not $wingetExe -or -not (Test-Path $wingetExe)) {
 # Check for available updates
 # ---------------------------------------------------------------------------
 
-# Update sources silently
-& $wingetExe source update --accept-source-agreements | Out-Null
+# Temporarily force the language to English for the current process
+$oldLang = $env:PreferredUILanguages
+$env:PreferredUILanguages = "en-US"
 
-# Run upgrade check including unknown versions
-$upgradeOutput = & $wingetExe upgrade --include-unknown --accept-source-agreements 2>&1
+try {
+    # Execute update check
+    $upgradeOutput = & $wingetExe upgrade --include-unknown --accept-source-agreements 2>&1
+}
+finally {
+    # Restore original language setting
+    $env:PreferredUILanguages = $oldLang
+}
 
-# Parse output: Find line dividers (--- or ───) and check if data rows exist after them
+# Purely English parsing
 $hasUpdates = $false
 $pastHeader = $false
 
 foreach ($line in $upgradeOutput) {
-    # Check for table header separator line
+    # Search for table header separator line (--- or ───)
     if ($line -match '^(---|───|\-\-\-)') {
         $pastHeader = $true
         continue
     }
 
-    # If passed the header and find non-empty content (excluding summary footers)
+    # Check data rows after the header
     if ($pastHeader -and $line.Trim().Length -gt 0) {
-        # Exclude common footer messages
+        # Only English exclusions required now!
         if ($line -notmatch "upgrades available" -and 
-            $line -notmatch "Aktualisierungen verfügbar" -and 
             $line -notmatch "selected source" -and
-            $line -notmatch "gefundene") {
+            $line -notmatch "installed package") {
             $hasUpdates = $true
             break
         }
     }
 }
+
 
 if ($hasUpdates) {
     Write-Log "Updates are available, and we are within the scheduled time window." "INFO" "Gray"
