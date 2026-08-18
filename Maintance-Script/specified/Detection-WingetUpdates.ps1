@@ -10,14 +10,37 @@
    Github-Author:   manuel-stgr
    License-URL:     https://github.com/manuel-stgr/Intune-Winget-Management/blob/main/LICENSE        
    Creation Date:   2026-08-14
-   Purpose/Change:  make Script clearer
+   Purpose/Change:  add Schedule
 #>
+
 
 # ---------------------------------------------------------------------------
 # Time-Configuration
 # ---------------------------------------------------------------------------
 
-$startHour = 14
+$schedule = @{
+    "Monday"    = @(@{ Start = "12:30"; End = "16:30" })
+    "Tuesday"   = @(@{ Start = "00:00"; End = "01:30" })
+    "Wednesday" = @() # Blocked all day
+    "Thursday"  = @(@{ Start = "14:00"; End = "23:59" })
+    "Friday"    = @(
+                    @{ Start = "08:00"; End = "12:30" }, # Multiple windows per day are supported
+                    @{ Start = "14:00"; End = "18:00" }
+                  )
+    "Saturday"  = @(@{ Start = "00:00"; End = "23:59" })
+    "Sunday"    = @(@{ Start = "00:00"; End = "23:59" })
+}
+
+
+# ---------------------------------------------------------------------------
+# 64-bit PowerShell Redirection
+# ---------------------------------------------------------------------------
+
+if ($env:PROCESSOR_ARCHITEW6432 -eq "AMD64") {
+    & "$env:SystemRoot\SysNative\WindowsPowerShell\v1.0\powershell.exe" -ExecutionPolicy Bypass -File "$PSCommandPath"
+    exit $LASTEXITCODE
+}
+
 
 # ---------------------------------------------------------------------------
 # Configuration Winget-AppIDs
@@ -29,16 +52,6 @@ $appsToUpdate = @(
     "Notepad++.Notepad++"
     # Add additional Winget IDs here
 )
-
-# ---------------------------------------------------------------------------
-# 64-bit PowerShell Redirection
-# ---------------------------------------------------------------------------
-
-if ($env:PROCESSOR_ARCHITEW6432 -eq "AMD64") {
-    & "$env:SystemRoot\SysNative\WindowsPowerShell\v1.0\powershell.exe" -ExecutionPolicy Bypass -File "$PSCommandPath"
-    exit $LASTEXITCODE
-}
-
 
 # ---------------------------------------------------------------------------
 # Logging Configuration
@@ -78,14 +91,29 @@ if ((Test-Path -Path $LogPath) -and ((Get-Item -Path $LogPath).Length -gt 20MB))
 
 
 # ---------------------------------------------------------------------------
-# Time window check (14:00 to 24:00)
+# Time window check
 # ---------------------------------------------------------------------------
 
-$currentHour = (Get-Date).Hour
+$now = Get-Date
+$currentDay  = $now.DayOfWeek.ToString()
+$currentTime = $now.TimeOfDay
 
-if ($currentHour -lt $startHour) {
-    # Outside the maintenance window -> No action required for Intune
-    Write-Log "Time ($(Get-Date -Format 'HH:mm')) is before 2:00 PM. Maintenance skipped." "INFO" "Yellow"
+$todayWindows = $schedule[$currentDay]
+$isAllowed    = $false
+
+# Check all configured time windows for today
+foreach ($window in $todayWindows) {
+    $start = [TimeSpan]::Parse($window.Start)
+    $end   = [TimeSpan]::Parse($window.End)
+
+    if ($currentTime -ge $start -and $currentTime -le $end) {
+        $isAllowed = $true
+        break
+    }
+}
+
+if (-not $isAllowed) {
+    Write-Log "Time ($($now.ToString('dddd HH:mm'))) is outside the allowed maintenance window. Maintenance skipped." "INFO" "Yellow"
     exit 0
 }
 
