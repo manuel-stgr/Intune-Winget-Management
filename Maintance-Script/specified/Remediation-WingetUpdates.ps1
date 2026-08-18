@@ -6,7 +6,7 @@
     Installs updates only for a specific list of defined Winget application IDs.
 
 .NOTES
-  Version:        1.0
+  Version:        2.0
   Github-Author:  manuel-stgr
   License-URL:    https://github.com/manuel-stgr/Intune-Winget-Management/blob/main/LICENSE        
   Creation Date:  2026-08-14
