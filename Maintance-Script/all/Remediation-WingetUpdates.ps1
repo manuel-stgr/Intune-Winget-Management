@@ -7,11 +7,11 @@
   
 
 .NOTES
-  Version:        2.0
+  Version:        2.1
   Github-Author:  manuel-stgr
   License-URL:    https://github.com/manuel-stgr/Intune-Winget-Management/blob/main/LICENSE        
   Creation Date:  2026-08-13
-  Purpose/Change: add Announcement prior to the update
+  Purpose/Change: Improvement of Update Message Configuration
 #>
 
 
@@ -19,12 +19,15 @@
 # Update Message Configuration
 # ---------------------------------------------------------------------------
 
+$UpdateToWaitAfterMessageMinutes = 2 #minutes
+
 $UpdateMessageTitle = "Scheduled Software Maintenance"
-$UpdateMessageText = "Automatic software updates via Winget will install in 2 minutes. Please save your work."
-$UpdateToWaitAfterMessage = 120
+$UpdateMessageText = "Automatic software updates via Winget will install in $UpdateToWaitAfterMessageMinutes minutes. Please save your work."
+
 
 $UpdateFinishedTitle = "Software Update Completed"
 $UpdateFinishedText = "All pending software updates have been successfully installed. You can resume your work."
+
 
 
 # ---------------------------------------------------------------------------
@@ -36,13 +39,13 @@ if ($env:PROCESSOR_ARCHITEW6432 -eq "AMD64") {
     exit $LASTEXITCODE
 }
 
+
 # ---------------------------------------------------------------------------
 # Logging Configuration
 # ---------------------------------------------------------------------------
 
 $LogDirectory = "$env:ProgramData\IntuneWingetManagement\Logs"
 $LogPath      = "$LogDirectory\Winget-AllUpdate.log"
-
 
 function Write-Log {
     param (
@@ -141,10 +144,10 @@ function Show-ToastNotification {
 
 
 # Send toast ... Update start Notification and wait x minutes
-Write-Log "Sending Update wait x minutes notification to the user..." "INFO" "Cyan"
+Write-Log "Sending Update wait $UpdateToWaitAfterMessageMinutes minutes notification to the user..." "INFO" "Cyan"
 Show-ToastNotification -Title $UpdateMessageTitle -Message $UpdateMessageText
 
- $UpdateToWaitAfterMessageMinutes = $UpdateToWaitAfterMessage / 60
+ $UpdateToWaitAfterMessage = $UpdateToWaitAfterMessageMinutes * 60
 Write-Log "Waiting $UpdateToWaitAfterMessageMinutes minutes before starting updates..." "INFO" "Yellow"
 Start-Sleep -Seconds $UpdateToWaitAfterMessage
 
