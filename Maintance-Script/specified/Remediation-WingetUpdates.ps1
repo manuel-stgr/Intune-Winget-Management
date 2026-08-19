@@ -6,13 +6,12 @@
     Installs updates only for a specific list of defined Winget application IDs.
 
 .NOTES
-  Version:        2.0
+  Version:        2.1
   Github-Author:  manuel-stgr
   License-URL:    https://github.com/manuel-stgr/Intune-Winget-Management/blob/main/LICENSE        
   Creation Date:  2026-08-14
-  Purpose/Change: add Announcement prior to the update
+  Purpose/Change: Improvement of Update Message Configuration
 #>
-
 
 # ---------------------------------------------------------------------------
 # Configuration Winget-AppIDs
@@ -24,12 +23,15 @@ $appsToUpdate = @(
     # Add additional Winget IDs here.
 )
 
+
 # ---------------------------------------------------------------------------
 # Update Message Configuration
 # ---------------------------------------------------------------------------
 
+$UpdateToWaitAfterMessageMinutes = 2 #minutes
+
 $UpdateMessageTitle = "Scheduled Software Maintenance"
-$UpdateMessageText = "Automatic software updates via Winget will install in 2 minutes. Please save your work."
+$UpdateMessageText = "Automatic software updates via Winget will install in $UpdateToWaitAfterMessageMinutes minutes. Please save your work."
 $UpdateToWaitAfterMessage = 120
 
 $UpdateFinishedTitle = "Software Update Completed"
@@ -44,6 +46,7 @@ if ($env:PROCESSOR_ARCHITEW6432 -eq "AMD64") {
     & "$env:SystemRoot\SysNative\WindowsPowerShell\v1.0\powershell.exe" -ExecutionPolicy Bypass -File "$PSCommandPath"
     exit $LASTEXITCODE
 }
+
 
 
 # ---------------------------------------------------------------------------
@@ -154,11 +157,12 @@ function Show-ToastNotification {
 # Execute Updates for defined apps
 # ---------------------------------------------------------------------------
 
+
 # Send toast ... Update start Notification and wait x minutes
-Write-Log "Sending Update wait x minutes notification to the user..." "INFO" "Cyan"
+Write-Log "Sending Update wait $UpdateToWaitAfterMessageMinutes minutes notification to the user..." "INFO" "Cyan"
 Show-ToastNotification -Title $UpdateMessageTitle -Message $UpdateMessageText
 
- $UpdateToWaitAfterMessageMinutes = $UpdateToWaitAfterMessage / 60
+$UpdateToWaitAfterMessage = $UpdateToWaitAfterMessageMinutes * 60
 Write-Log "Waiting $UpdateToWaitAfterMessageMinutes minutes before starting updates..." "INFO" "Yellow"
 Start-Sleep -Seconds $UpdateToWaitAfterMessage
 
