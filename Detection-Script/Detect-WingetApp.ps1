@@ -9,11 +9,11 @@
    $AppId = "Notepad++.Notepad++"
   
 .NOTES
-  Version:        2.0
+  Version:        2.2
   Github-Author:  manuel-stgr
   License-URL:    https://github.com/manuel-stgr/Intune-Winget-Management/blob/main/LICENSE        
   Creation Date:  2026-08-13
-  Purpose/Change: Adding Log and Json-Database & Correct Winget-Path
+  Purpose/Change: Fix WingetPath Bug
 #>
 
 
@@ -86,14 +86,24 @@ if ((Test-Path -Path $LogPath) -and ((Get-Item -Path $LogPath).Length -gt 20MB))
 # winget.exe Determine path
 # ---------------------------------------------------------------------------
 
-$wingetExe = Get-ChildItem -Path "$env:LocalAppData\Microsoft\WindowsApps\winget.exe" -ErrorAction SilentlyContinue | 
+# 1. Check global WindowsApps directory first (works in SYSTEM & User contexts)
+$wingetExe = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps\Microsoft.DesktopAppInstaller_*_x64__8wekyb3d8bbwe\winget.exe" -ErrorAction SilentlyContinue | 
              Sort-Object LastWriteTime -Descending | 
              Select-Object -ExpandProperty FullName -First 1
 
+# 2. Fallback: User AppData path
+if (-not $wingetExe) {
+    $wingetExe = Get-ChildItem -Path "$env:LocalAppData\Microsoft\WindowsApps\winget.exe" -ErrorAction SilentlyContinue | 
+                 Sort-Object LastWriteTime -Descending | 
+                 Select-Object -ExpandProperty FullName -First 1
+}
+
+# 3. Fallback: PATH environment lookup
 if (-not $wingetExe) {
     $wingetExe = (Get-Command "winget.exe" -ErrorAction SilentlyContinue).Source
 }
 
+# Validation and exit handling
 if (-not $wingetExe -or -not (Test-Path $wingetExe)) {
     # WinGet not Found -> App is considered non-existent.
     Write-Log "Couldn't find Winget on the host."
