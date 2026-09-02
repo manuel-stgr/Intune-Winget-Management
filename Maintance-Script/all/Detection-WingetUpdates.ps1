@@ -1,11 +1,10 @@
 <#
 .SYNOPSIS
-   Installs updates via Winget
+   Checks if Winget-APP updates are available.
  
 .DESCRIPTION
-  Installs updates for any detected Winget software.
-  
-
+  First, it is checked whether the specified hour has passed; the check for winget updates (ALL) only takes place from that point onwards.
+ 
 .NOTES
   Version:        2.2
   Github-Author:  manuel-stgr
@@ -14,20 +13,22 @@
   Purpose/Change: Fix WingetPath Bug
 #>
 
-
 # ---------------------------------------------------------------------------
-# Update Message Configuration
+# Time-Configuration
 # ---------------------------------------------------------------------------
 
-$UpdateToWaitAfterMessageMinutes = 2 #minutes
-
-$UpdateMessageTitle = "Scheduled Software Maintenance"
-$UpdateMessageText = "Automatic software updates via Winget will install in $UpdateToWaitAfterMessageMinutes minutes. Please save your work."
-
-
-$UpdateFinishedTitle = "Software Update Completed"
-$UpdateFinishedText = "All pending software updates have been successfully installed. You can resume your work."
-
+$schedule = @{
+    "Monday"    = @(@{ Start = "12:30"; End = "16:30" })
+    "Tuesday"   = @(@{ Start = "00:00"; End = "01:30" })
+    "Wednesday" = @() # Blocked all day
+    "Thursday"  = @(@{ Start = "14:00"; End = "23:59" })
+    "Friday"    = @(
+                    @{ Start = "08:00"; End = "12:30" }, # Multiple windows per day are supported
+                    @{ Start = "14:00"; End = "18:00" }
+                  )
+    "Saturday"  = @(@{ Start = "00:00"; End = "23:59" }) # all day
+    "Sunday"    = @(@{ Start = "00:00"; End = "23:59" }) # all day
+}
 
 
 # ---------------------------------------------------------------------------
@@ -47,6 +48,7 @@ if ($env:PROCESSOR_ARCHITEW6432 -eq "AMD64") {
 $LogDirectory = "$env:ProgramData\IntuneWingetManagement\Logs"
 $LogPath      = "$LogDirectory\Winget-AllUpdate.log"
 
+
 function Write-Log {
     param (
         [string]$Message,
@@ -61,10 +63,48 @@ function Write-Log {
 }
 
 Write-Log "==========================================" "INFO" "Gray"
-Write-Log "Starting remediation: Automatic Winget maintenance" "INFO" "Green"
+Write-Log "Starting Detection: Automatic Winget maintenance" "INFO" "Green"
 
 # ---------------------------------------------------------------------------
-# Determine the path to winget.exe
+# delete Log after 20MB
+# ---------------------------------------------------------------------------
+
+if ((Test-Path -Path $LogPath) -and ((Get-Item -Path $LogPath).Length -gt 20MB)) {
+    
+    Clear-Content -Path $LogPath -Force -ErrorAction SilentlyContinue
+
+    Write-Log "Log reset, reached 20MB" "WARN" "Yellow"
+}
+
+# ---------------------------------------------------------------------------
+# Time window check
+# ---------------------------------------------------------------------------
+
+$now = Get-Date
+$currentDay  = $now.DayOfWeek.ToString()
+$currentTime = $now.TimeOfDay
+
+$todayWindows = $schedule[$currentDay]
+$isAllowed    = $false
+
+# Check all configured time windows for today
+foreach ($window in $todayWindows) {
+    $start = [TimeSpan]::Parse($window.Start)
+    $end   = [TimeSpan]::Parse($window.End)
+
+    if ($currentTime -ge $start -and $currentTime -le $end) {
+        $isAllowed = $true
+        break
+    }
+}
+
+if (-not $isAllowed) {
+    Write-Log "Time ($($now.ToString('dddd HH:mm'))) is outside the allowed maintenance window. Maintenance skipped." "INFO" "Yellow"
+    exit 0
+}
+
+# ---------------------------------------------------------------------------
+# Determine winget.exe path 
 # ---------------------------------------------------------------------------
 
 # 1. Check global WindowsApps directory first (works in SYSTEM & User contexts)
@@ -92,103 +132,50 @@ if (-not $wingetExe -or -not (Test-Path $wingetExe)) {
 }
 
 # ---------------------------------------------------------------------------
-# Toast Notification & Delay Configuration
+# Check for available updates
 # ---------------------------------------------------------------------------
 
-function Show-ToastNotification {
-    param(
-        [string]$Title = "Example Title",
-        [string]$Message = "Example Message",
-        [string]$AppIdf = "Intune-Winget-Management",
-        [string]$AppDisplayName = "Intune Winget Management"
-    )
+# Temporarily force the language to English for the current process
+$oldLang = $env:PreferredUILanguages
+$env:PreferredUILanguages = "en-US"
 
-    try {
-        # 1) Register AppIDf with display name
-        $classesPath = "HKCU:\Software\Classes\AppUserModelId\$AppIdf"
-        if (-not (Test-Path $classesPath)) {
-            New-Item -Path $classesPath -Force | Out-Null
-        }
-        New-ItemProperty -Path $classesPath -Name "DisplayName" -Value $AppDisplayName -PropertyType String -Force | Out-Null
-        New-ItemProperty -Path $classesPath -Name "IconUri" -Value "%SystemRoot%\System32\SecurityAndMaintenance.ico" -PropertyType ExpandString -Force | Out-Null
+try {
+    # Execute update check
+    $upgradeOutput = & $wingetExe upgrade --include-unknown --accept-source-agreements 2>&1
+}
+finally {
+    # Restore original language setting
+    $env:PreferredUILanguages = $oldLang
+}
 
-        # 2) Automatically enable notification permissions for this AppIDf
-        $settingsPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings\$AppIdf"
-        if (-not (Test-Path $settingsPath)) {
-            New-Item -Path $settingsPath -Force | Out-Null
-        }
-        New-ItemProperty -Path $settingsPath -Name "Enabled" -Value 1 -PropertyType DWord -Force | Out-Null
-        New-ItemProperty -Path $settingsPath -Name "ShowInActionCenter" -Value 1 -PropertyType DWord -Force | Out-Null
-        New-ItemProperty -Path $settingsPath -Name "ShowBanner" -Value 1 -PropertyType DWord -Force | Out-Null
-        New-ItemProperty -Path $settingsPath -Name "Sound" -Value 1 -PropertyType DWord -Force | Out-Null
+# Purely English parsing
+$hasUpdates = $false
+$pastHeader = $false
 
-        # 3) Display Toast notification
-        [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-        [Windows.UI.Notifications.ToastNotification, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-        [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
-
-        [xml]$ToastXml = @"
-<toast>
-    <visual>
-        <binding template="ToastGeneric">
-            <text>$Title</text>
-            <text>$Message</text>
-        </binding>
-    </visual>
-    <audio src="ms-winsoundevent:Notification.Default" />
-</toast>
-"@
-
-        $xmlDoc = New-Object Windows.Data.Xml.Dom.XmlDocument
-        $xmlDoc.LoadXml($ToastXml.OuterXml)
-
-        $toast = [Windows.UI.Notifications.ToastNotification]::new($xmlDoc)
-        $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($AppIdf)
-        $notifier.Show($toast)
-
-        Write-Log "Toast notification sent successfully." "INFO" "Cyan"
+foreach ($line in $upgradeOutput) {
+    # Search for table header separator line (--- or ───)
+    if ($line -match '^(---|───|\-\-\-)') {
+        $pastHeader = $true
+        continue
     }
-    catch {
-        Write-Log "Error sending toast notification: $_" "WARN" "Yellow"
+
+    # Check data rows after the header
+    if ($pastHeader -and $line.Trim().Length -gt 0) {
+        # Only English exclusions required now!
+        if ($line -notmatch "upgrades available" -and 
+            $line -notmatch "selected source" -and
+            $line -notmatch "installed package") {
+            $hasUpdates = $true
+            break
+        }
     }
 }
 
 
-# Send toast ... Update start Notification and wait x minutes
-Write-Log "Sending Update wait $UpdateToWaitAfterMessageMinutes minutes notification to the user..." "INFO" "Cyan"
-Show-ToastNotification -Title $UpdateMessageTitle -Message $UpdateMessageText
-
- $UpdateToWaitAfterMessage = $UpdateToWaitAfterMessageMinutes * 60
-Write-Log "Waiting $UpdateToWaitAfterMessageMinutes minutes before starting updates..." "INFO" "Yellow"
-Start-Sleep -Seconds $UpdateToWaitAfterMessage
-
-
-# ---------------------------------------------------------------------------
-# Execute Updates
-# ---------------------------------------------------------------------------
-
-
-$upgradeArgs = @(
-    "upgrade",
-    "--all",
-    "--silent",
-    "--accept-source-agreements",
-    "--accept-package-agreements",
-    "--include-unknown"
-)
-
-Write-Log "Run 'winget upgrade --all'..."
-$process = Start-Process -FilePath $wingetExe -ArgumentList $upgradeArgs -Wait -NoNewWindow -PassThru
-
-# Send toast ... Update Finished.
-Write-Log "Sending Update finished notification to the user..." "INFO" "Cyan"
-Show-ToastNotification -Title $UpdateFinishedTitle -Message $UpdateFinishedText
-
-
-if ($process.ExitCode -eq 0) {
-    Write-Log "All available updates have been successfully installed." "INFO" "Green"
-    exit 0
+if ($hasUpdates) {
+    Write-Log "Updates are available, and we are within the scheduled time window." "INFO" "Gray"
+    exit 1 # Intune Remediation required
 } else {
-    Write-Log "Maintenance completed with exit code: $($process.ExitCode)" "WARN" "Yellow"
-    exit 0
+    Write-Log "All apps are up to date." "INFO" "Green"
+    exit 0 # No action required
 }
