@@ -6,11 +6,11 @@
    First, it is checked whether the specified hour has passed; the check for winget updates only takes place from that point onwards for defined App IDs.
  
 .NOTES
-   Version:         2.0
+   Version:         2.2
    Github-Author:   manuel-stgr
    License-URL:     https://github.com/manuel-stgr/Intune-Winget-Management/blob/main/LICENSE        
    Creation Date:   2026-08-14
-   Purpose/Change:  add Schedule
+   Purpose/Change:  Fix WingetPath Bug
 #>
 
 
@@ -121,17 +121,28 @@ if (-not $isAllowed) {
 # Determine winget.exe path 
 # ---------------------------------------------------------------------------
 
-$wingetExe = Get-ChildItem -Path "$env:LocalAppData\Microsoft\WindowsApps\winget.exe" -ErrorAction SilentlyContinue | 
+# 1. Check global WindowsApps directory first (works in SYSTEM & User contexts)
+$wingetExe = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps\Microsoft.DesktopAppInstaller_*_x64__8wekyb3d8bbwe\winget.exe" -ErrorAction SilentlyContinue | 
              Sort-Object LastWriteTime -Descending | 
              Select-Object -ExpandProperty FullName -First 1
 
+# 2. Fallback: User AppData path
+if (-not $wingetExe) {
+    $wingetExe = Get-ChildItem -Path "$env:LocalAppData\Microsoft\WindowsApps\winget.exe" -ErrorAction SilentlyContinue | 
+                 Sort-Object LastWriteTime -Descending | 
+                 Select-Object -ExpandProperty FullName -First 1
+}
+
+# 3. Fallback: PATH environment lookup
 if (-not $wingetExe) {
     $wingetExe = (Get-Command "winget.exe" -ErrorAction SilentlyContinue).Source
 }
 
+# Validation and exit handling
 if (-not $wingetExe -or -not (Test-Path $wingetExe)) {
-    Write-Log "winget.exe not found." "ERROR" "Red"
-    exit 0
+    # WinGet not Found -> App is considered non-existent.
+    Write-Log "Couldn't find Winget on the host."
+    exit 1
 }
 
 # ---------------------------------------------------------------------------
